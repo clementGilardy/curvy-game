@@ -1,4 +1,5 @@
-use bevy::{app::AppExit, render::color::Color::Rgba, prelude::*};
+use bevy::{app::AppExit, prelude::*, render::color::Color::Rgba};
+
 use crate::{despawn_screen, DisplayQuality, GameState, Volume};
 
 // This plugin manages the menu, with 5 different screens:
@@ -78,10 +79,9 @@ struct OnDisplaySettingsMenuScreen;
 #[derive(Component)]
 struct OnSoundSettingsMenuScreen;
 
-const NORMAL_BUTTON: Color = Rgba { alpha: 1.0, red: 0.15, green:0.15, blue: 0.15 };
+const NORMAL_BUTTON: Color = Rgba { alpha: 1.0, red: 1.0, green: 1.0, blue: 1.0 };
 const HOVERED_BUTTON: Color = Rgba { alpha: 1.0, red: 0.25, green: 0.25, blue: 0.25 };
-const HOVERED_PRESSED_BUTTON: Color = Rgba { alpha: 1.0, red: 0.25, green: 0.65, blue: 0.25 };
-const PRESSED_BUTTON: Color = Rgba { alpha: 1.0, red: 0.35, green: 0.75, blue: 0.35 };
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 // Tag component used to mark which setting is currently selected
 #[derive(Component)]
@@ -102,17 +102,22 @@ enum MenuButtonAction {
 // This system handles changing all buttons color based on mouse interaction
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, Option<&SelectedOption>),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image, selected) in &mut interaction_query {
-        /*image.texture? = match (*interaction, selected) {
-            (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON,
-            (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON,
-            (Interaction::Hovered, None) => HOVERED_BUTTON,
-            (Interaction::None, None) => NORMAL_BUTTON,
-        }*/
+    for (interaction, mut background_color, ) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *background_color = PRESSED_BUTTON.into();
+            }
+            Interaction::Hovered => {
+                *background_color = HOVERED_BUTTON.into();
+            }
+            Interaction::None => {
+                *background_color = NORMAL_BUTTON.into();
+            }
+        }
     }
 }
 
@@ -120,14 +125,14 @@ fn button_system(
 // the button as the one currently selected
 fn setting_button<T: Resource + Component + PartialEq + Copy>(
     interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-    mut selected_query: Query<(Entity, &mut UiImage), With<SelectedOption>>,
+    mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
     mut commands: Commands,
     mut setting: ResMut<T>,
 ) {
     for (interaction, button_setting, entity) in &interaction_query {
         if *interaction == Interaction::Pressed && *setting != *button_setting {
-            let (previous_button, mut previous_image) = selected_query.single_mut();
-            // previous_image.texture? = NORMAL_BUTTON;
+            let (previous_button, mut background_color) = selected_query.single_mut();
+            *background_color = NORMAL_BUTTON.into();
             commands.entity(previous_button).remove::<SelectedOption>();
             commands.entity(entity).insert(SelectedOption);
             *setting = *button_setting;
@@ -151,9 +156,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let button_icon_style = Style {
         width: Val::Px(30.0),
-        // This takes the icons out of the flexbox flow, to be positioned exactly
         position_type: PositionType::Absolute,
-        // The icon will be close to the left border of the button
         left: Val::Px(10.0),
         ..default()
     };
@@ -185,7 +188,6 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -195,7 +197,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             "Curvy game",
                             TextStyle {
                                 font_size: 80.0,
-                                color: Rgba { alpha: 1.0, red: 0.0, blue: 0.0, green: 0.0 },
+                                color: Rgba { alpha: 1.0, red: 1.0, blue: 1.0, green: 1.0 },
                                 ..default()
                             },
                         )
@@ -240,7 +242,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             MenuButtonAction::Settings,
                         ))
                         .with_children(|parent| {
-                            let icon = asset_server.load("textures/Game Icons/wrench.png");
+                            let icon = asset_server.load("textures/Game Icons/settings.png");
                             parent.spawn(ImageBundle {
                                 style: button_icon_style.clone(),
                                 image: UiImage::new(icon),
@@ -311,7 +313,6 @@ fn settings_menu_setup(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -377,7 +378,6 @@ fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<Disp
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -389,14 +389,17 @@ fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<Disp
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                             ..default()
                         })
                         .with_children(|parent| {
                             // Display a label for the current setting
                             parent.spawn(TextBundle::from_section(
-                                "Qualité",
-                                button_text_style.clone(),
+                                "Qualiter",
+                                TextStyle {
+                                    color: Rgba { alpha: 1.0, red: 1.0, green: 1.0, blue: 1.0 },
+                                    font_size: 40.0,
+                                    ..default()
+                                },
                             ));
                             // Display a button for each possible value
                             for quality_setting in [
@@ -481,7 +484,6 @@ fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -491,13 +493,16 @@ fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            background_color: Rgba { alpha: 1.0, red: 0.86, green: 0.08, blue: 0.24 }.into(),
                             ..default()
                         })
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(
                                 "Volume",
-                                button_text_style.clone(),
+                                TextStyle {
+                                    font_size: 40.0,
+                                    color: Rgba { alpha: 1.0, red: 1.0, blue: 1.0, green: 1.0 },
+                                    ..default()
+                                },
                             ));
                             for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                 let mut entity = parent.spawn((

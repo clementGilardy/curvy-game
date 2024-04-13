@@ -1,15 +1,14 @@
+use bevy::app::PluginGroupBuilder;
+use bevy::prelude::*;
+
+use game::game::game_plugin;
+use menu::menu::menu_plugin;
+use splash::splash::splash_plugin;
+
 mod splash;
 mod game;
 mod menu;
 
-use bevy::{
-    prelude::*,
-};
-use bevy::app::PluginGroupBuilder;
-use bevy::input::keyboard::KeyboardInput;
-use splash::splash::splash_plugin;
-use menu::menu::menu_plugin;
-use game::game::game_plugin;
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum GameState {
     #[default]
