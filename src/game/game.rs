@@ -1,121 +1,85 @@
-    use bevy::{
-        prelude::*,
-    };
-    use bevy::prelude::Color::Rgba;
-    use crate::{despawn_screen, DisplayQuality, GameState, Volume};
+use bevy::prelude::*;
+use bevy::render::render_resource::ShaderType;
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
-    // This plugin will contain the game. In this case, it's just be a screen that will
-    // display the current settings for 5 seconds before returning to the menu
-    pub fn game_plugin(app: &mut App) {
-        app.add_systems(OnEnter(GameState::Game), game_setup)
-            .add_systems(Update, game.run_if(in_state(GameState::Game)))
-            .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
-    }
+use crate::{despawn_screen, GameState};
 
-    // Tag component used to tag entities added on the game screen
-    #[derive(Component)]
-    struct OnGameScreen;
+// This plugin will contain the game. In this case, it's just be a screen that will
+// display the current settings for 5 seconds before returning to the menu
+pub fn game_plugin(app: &mut App) {
+    app.add_systems(OnEnter(GameState::Game), game_setup)
+        .add_systems(Update, game)
+        .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
+}
 
-    #[derive(Resource, Deref, DerefMut)]
-    struct GameTimer(Timer);
+// Tag component used to tag entities added on the game screen
+#[derive(Component)]
+struct OnGameScreen;
 
-    fn game_setup(
-        mut commands: Commands,
-        display_quality: Res<DisplayQuality>,
-        volume: Res<Volume>,
-    ) {
-        commands
-            .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        // center children
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    ..default()
-                },
-                OnGameScreen,
-            ))
-            .with_children(|parent| {
-                // First create a `NodeBundle` for centering what we want to display
-                parent
-                    .spawn(NodeBundle {
-                        style: Style {
-                            // This will display its children in a column, from top to bottom
-                            flex_direction: FlexDirection::Column,
-                            // `align_items` will align children on the cross axis. Here the main axis is
-                            // vertical (column), so the cross axis is horizontal. This will center the
-                            // children
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: Color::BLACK.into(),
-                        ..default()
-                    })
-                    .with_children(|parent| {
-                        // Display two lines of text, the second one with the current settings
-                        parent.spawn(
-                            TextBundle::from_section(
-                                "Will be back to the menu shortly...",
-                                TextStyle {
-                                    font_size: 80.0,
-                                    color:  Rgba {alpha:1.0, red: 0.0, blue: 0.0, green: 0.0},
-                                    ..default()
-                                },
-                            )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(50.0)),
-                                    ..default()
-                                }),
-                        );
-                        parent.spawn(
-                            TextBundle::from_sections([
-                                TextSection::new(
-                                    format!("quality: {:?}", *display_quality),
-                                    TextStyle {
-                                        font_size: 60.0,
-                                        color: Rgba {alpha:1.0,red:0.0, green:0.0, blue: 1.0}.into(),
-                                        ..default()
-                                    },
-                                ),
-                                TextSection::new(
-                                    " - ",
-                                    TextStyle {
-                                        font_size: 60.0,
-                                        color:  Rgba {alpha:1.0, red: 0.0, blue: 0.0, green: 0.0},
-                                        ..default()
-                                    },
-                                ),
-                                TextSection::new(
-                                    format!("volume: {:?}", *volume),
-                                    TextStyle {
-                                        font_size: 60.0,
-                                        color: Rgba {alpha:1.0,red:0.2, green:0.8, blue: 0.2}.into(),
-                                        ..default()
-                                    },
-                                ),
-                            ])
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(50.0)),
-                                    ..default()
-                                }),
-                        );
-                    });
-            });
-        // Spawn a 5 seconds timer to trigger going back to the menu
-        commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
-    }
+#[derive(Component)]
+enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+    Stop
+}
 
-    // Tick the timer, and change state when finished
-    fn game(
-        time: Res<Time>,
-        mut game_state: ResMut<NextState<GameState>>,
-        mut timer: ResMut<GameTimer>,
-    ) {
-        if timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Menu);
+fn game_setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let shape = Mesh2dHandle(meshes.add(Circle { radius: 10.0 }));
+    let color = Color::hsl(360., 0.95, 0.7);
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: shape,
+            material: materials.add(color),
+            transform: Transform::from_xyz(
+                100.0,
+                0.0,
+                0.0,
+            ),
+            ..default()
+        },
+        Direction::Up
+    ));
+}
+
+fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mut Direction, &mut Transform)>) {
+    for (mut logo, mut transform) in &mut shape_position {
+        let window = windows.single();
+        let height = window.height();
+        let width = window.width();
+        match *logo {
+            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
+            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
+            Direction::Right => transform.translation.x -= 150. * time.delta_seconds(),
+            Direction::Left => transform.translation.x -= 150. * time.delta_seconds(),
+            Direction::Stop => {
+                transform.translation.x += 0.;
+                transform.translation.y += 0.
+            },
+            _ => println!("none")
         }
+        behaviour_on_y(height, &transform, &mut logo);
+        behaviour_on_x(width, &transform, &mut logo);
     }
+}
+
+fn behaviour_on_x(width: f32, transform: &Mut<Transform>, logo: &mut Direction) {
+    if transform.translation.x > (width / 2.) {
+        *logo = Direction::Stop;
+    } else if transform.translation.x < -(width / 2.) {
+        *logo = Direction::Stop
+    }
+}
+
+fn behaviour_on_y(height: f32, transform: &Mut<Transform>, logo: &mut Direction) {
+    if transform.translation.y > (height / 2.) {
+        *logo = Direction::Stop;
+    } else if transform.translation.y < -(height / 2.) {
+        *logo = Direction::Stop
+    }
+}
