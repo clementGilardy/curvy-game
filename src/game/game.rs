@@ -60,8 +60,7 @@ fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mu
             Direction::Stop => {
                 transform.translation.x += 0.;
                 transform.translation.y += 0.
-            },
-            _ => println!("none")
+            }
         }
         behaviour_on_y(height, &transform, &mut logo);
         behaviour_on_x(width, &transform, &mut logo);
