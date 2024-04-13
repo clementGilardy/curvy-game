@@ -5,6 +5,7 @@ mod menu;
 use bevy::{
     prelude::*,
 };
+use bevy::app::PluginGroupBuilder;
 use bevy::input::keyboard::KeyboardInput;
 use splash::splash::splash_plugin;
 use menu::menu::menu_plugin;
@@ -31,13 +32,23 @@ struct Volume(u32);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(default_plugin())
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_plugins((splash_plugin, menu_plugin, game_plugin))
         .run();
+}
+
+fn default_plugin() -> PluginGroupBuilder {
+    DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Curvy game".to_string(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
 }
 
 fn setup(mut commands: Commands) -> () {
