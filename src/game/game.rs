@@ -5,7 +5,8 @@ use crate::{despawn_screen, GameState};
 use crate::game::player::Player;
 
 pub fn game_plugin(app: &mut App) {
-    app.add_systems(OnEnter(GameState::Game), game_setup)
+    app.init_resource::<Game>()
+        .add_systems(OnEnter(GameState::Game), game_setup)
         .add_systems(Update, (game, mouvement, end_game).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
@@ -14,10 +15,9 @@ pub fn game_plugin(app: &mut App) {
 #[derive(Component)]
 pub struct OnGameScreen;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct Game {
     player1: Player,
-    state: GameState,
 }
 
 #[derive(Component, Debug)]

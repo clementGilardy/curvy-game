@@ -1,5 +1,8 @@
+#[derive(Default)]
 pub enum Effect {
-    ThroughWalls
+    #[default]
+    Default,
+    ThroughWalls,
 }
 
 pub trait CurvEffect: Sync + Send {
@@ -23,5 +26,11 @@ impl CurvEffect for Bonus {
 impl CurvEffect for Malus {
     fn apply(&self) {
         println!("Application du malus")
+    }
+}
+
+impl Default for Box<dyn CurvEffect> {
+    fn default() -> Self {
+        return Box::new(Bonus { effect: Effect::Default });
     }
 }
