@@ -2,12 +2,14 @@ use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 
 use game::game::game_plugin;
+use game_over::game_over::game_over_plugin;
 use menu::menu::menu_plugin;
 use splash::splash::splash_plugin;
 
 mod splash;
 mod game;
 mod menu;
+pub mod game_over;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum GameState {
@@ -37,7 +39,7 @@ fn main() {
         .insert_resource(Volume(7))
         .init_state::<GameState>()
         .add_systems(Startup, setup)
-        .add_plugins((splash_plugin, menu_plugin, game_plugin))
+        .add_plugins((splash_plugin, menu_plugin, game_plugin, game_over_plugin))
         .run();
 }
 
@@ -58,5 +60,6 @@ fn setup(mut commands: Commands) -> () {
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
+        println!("despawn");
     }
 }

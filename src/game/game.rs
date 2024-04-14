@@ -6,13 +6,13 @@ use crate::game::player::Player;
 
 pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, (game, mouvement, gameover).run_if(in_state(GameState::Game)))
+        .add_systems(Update, (game, mouvement, end_game).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
 
 // Tag component used to tag entities added on the game screen
 #[derive(Component)]
-struct OnGameScreen;
+pub struct OnGameScreen;
 
 #[derive(Resource)]
 struct Game {
@@ -47,7 +47,8 @@ fn game_setup(
             ),
             ..default()
         },
-        Direction::Up
+        Direction::Up,
+        OnGameScreen
     ));
 }
 
@@ -121,7 +122,7 @@ fn behaviour_on_y(height: f32, transform: &Mut<Transform>, logo: &mut Direction)
     }
 }
 
-fn gameover(
+fn end_game(
     mut game_state: ResMut<NextState<GameState>>,
     query: Query<&Direction>,
 ) {
