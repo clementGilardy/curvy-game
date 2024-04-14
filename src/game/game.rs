@@ -33,7 +33,9 @@ fn game_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut game: ResMut<Game>,
 ) {
+    game.player1 = Player::new();
     let shape = Mesh2dHandle(meshes.add(Circle { radius: 10.0 }));
     let color = Color::hsl(360., 0.95, 0.7);
     commands.spawn((

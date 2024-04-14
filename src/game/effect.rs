@@ -9,12 +9,20 @@ pub trait CurvEffect: Sync + Send {
     fn apply(&self);
 }
 
-struct Bonus {
+pub struct Bonus {
     effect: Effect,
 }
 
-struct Malus {
+pub struct Malus {
     effect: Effect,
+}
+
+impl Bonus {
+    pub fn new() -> Self {
+        Bonus {
+            effect: Effect::Default
+        }
+    }
 }
 
 impl CurvEffect for Bonus {
