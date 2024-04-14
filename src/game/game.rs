@@ -17,7 +17,46 @@ pub struct OnGameScreen;
 
 #[derive(Resource, Default)]
 struct Game {
-    player1: Player,
+    pub players: [Player; 1],
+}
+
+impl Game {
+    pub fn spawn_player(&self, mut commands: Commands,
+                        mut meshes: ResMut<Assets<Mesh>>,
+                        mut materials: ResMut<Assets<ColorMaterial>>) {
+        let shapes = self.init_shape(&mut meshes);
+        let len = &shapes.len();
+        for (i, shape) in shapes.into_iter().enumerate() {
+            let color = Color::hsl(360. * i as f32 / *len as f32, 0.95, 0.7);
+            self.spawn(&mut commands, shape, &mut materials, color);
+        }
+        println!("{:?}", self.players);
+    }
+
+    fn init_shape(&self, meshes: &mut ResMut<Assets<Mesh>>) -> Vec<Mesh2dHandle> {
+        let mut shapes = Vec::new();
+        for _ in &self.players {
+            &shapes.push(Mesh2dHandle(meshes.add(Circle { radius: 10.0 })));
+        }
+        shapes
+    }
+
+    fn spawn(&self,commands: &mut Commands, shape: Mesh2dHandle, materials: &mut ResMut<Assets<ColorMaterial>>, color: Color) -> () {
+        commands.spawn((
+            MaterialMesh2dBundle {
+                mesh: shape,
+                material: materials.add(color),
+                transform: Transform::from_xyz(
+                    100.0,
+                    0.0,
+                    0.0,
+                ),
+                ..default()
+            },
+            Direction::Up,
+            OnGameScreen
+        ));
+    }
 }
 
 #[derive(Component, Debug)]
@@ -30,28 +69,12 @@ enum Direction {
 }
 
 fn game_setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut game: ResMut<Game>,
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
+    game: ResMut<Game>,
 ) {
-    game.player1 = Player::new();
-    let shape = Mesh2dHandle(meshes.add(Circle { radius: 10.0 }));
-    let color = Color::hsl(360., 0.95, 0.7);
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: shape,
-            material: materials.add(color),
-            transform: Transform::from_xyz(
-                100.0,
-                0.0,
-                0.0,
-            ),
-            ..default()
-        },
-        Direction::Up,
-        OnGameScreen
-    ));
+    game.spawn_player(commands, meshes, materials);
 }
 
 fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mut Direction, &mut Transform)>) {
