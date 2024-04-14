@@ -1,3 +1,5 @@
+use std::fmt::Pointer;
+
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
@@ -7,7 +9,7 @@ use crate::{despawn_screen, GameState};
 // display the current settings for 5 seconds before returning to the menu
 pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, (game, mouvement))
+        .add_systems(Update, (game, mouvement, gameover).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
 
@@ -15,7 +17,7 @@ pub fn game_plugin(app: &mut App) {
 #[derive(Component)]
 struct OnGameScreen;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 enum Direction {
     Up,
     Down,
@@ -66,16 +68,36 @@ fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mu
     }
 }
 
-fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, time: Res<Time>, mut position: Query<&mut Direction>) {
-    for (mut logo) in &mut position {
+fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, mut position: Query<&mut Direction>) {
+    for mut logo in &mut position {
         if keyboard_input.just_pressed(KeyCode::KeyA) {
-            *logo = Direction::Left;
+            match *logo {
+                Direction::Right => {}
+                _ => {
+                    *logo = Direction::Left;
+                }
+            }
         } else if keyboard_input.just_pressed(KeyCode::KeyD) {
-            *logo = Direction::Right;
+            match *logo {
+                Direction::Left => {}
+                _ => {
+                    *logo = Direction::Right;
+                }
+            }
         } else if keyboard_input.just_pressed(KeyCode::KeyW) {
-            *logo = Direction::Up;
+            match *logo {
+                Direction::Down => {}
+                _ => {
+                    *logo = Direction::Up;
+                }
+            }
         } else if keyboard_input.just_pressed(KeyCode::KeyS) {
-            *logo = Direction::Down;
+            match *logo {
+                Direction::Up => {}
+                _ => {
+                    *logo = Direction::Down;
+                }
+            }
         }
     }
 }
@@ -93,5 +115,20 @@ fn behaviour_on_y(height: f32, transform: &Mut<Transform>, logo: &mut Direction)
         *logo = Direction::Stop;
     } else if transform.translation.y < -(height / 2.) {
         *logo = Direction::Stop
+    }
+}
+
+fn gameover(
+    mut game_state: ResMut<NextState<GameState>>,
+    query: Query<(&Direction)>,
+) {
+    for direction in query.iter() {
+        match direction {
+            Direction::Stop => {
+                print!("game over");
+                game_state.set(GameState::GameOver);
+            }
+            _ => {}
+        }
     }
 }
