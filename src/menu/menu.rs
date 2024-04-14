@@ -1,6 +1,7 @@
 use bevy::{app::AppExit, prelude::*, render::color::Color::Rgba};
 
 use crate::{despawn_screen, DisplayQuality, GameState, Volume};
+use crate::game_over::game_over::OnGameOverScreen;
 
 // This plugin manages the menu, with 5 different screens:
 // - a main menu with "New Game", "Settings", "Quit"
@@ -14,7 +15,7 @@ pub fn menu_plugin(app: &mut App) {
         .init_state::<MenuState>()
         .add_systems(OnEnter(GameState::Menu), menu_setup)
         // Systems to handle the main menu screen
-        .add_systems(OnEnter(MenuState::Main), main_menu_setup)
+        .add_systems(OnEnter(MenuState::Main), (despawn_screen::<OnGameOverScreen>, main_menu_setup))
         .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
         // Systems to handle the settings menu screen
         .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
@@ -54,7 +55,7 @@ pub fn menu_plugin(app: &mut App) {
 
 // State used for the current menu screen
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum MenuState {
+pub enum MenuState {
     Main,
     Settings,
     SettingsDisplay,
@@ -100,7 +101,7 @@ enum MenuButtonAction {
 }
 
 // This system handles changing all buttons color based on mouse interaction
-fn button_system(
+pub fn button_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
