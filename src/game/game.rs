@@ -1,12 +1,9 @@
-use std::fmt::Pointer;
-
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 use crate::{despawn_screen, GameState};
+use crate::game::player::Player;
 
-// This plugin will contain the game. In this case, it's just be a screen that will
-// display the current settings for 5 seconds before returning to the menu
 pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
         .add_systems(Update, (game, mouvement, gameover).run_if(in_state(GameState::Game)))
@@ -16,6 +13,12 @@ pub fn game_plugin(app: &mut App) {
 // Tag component used to tag entities added on the game screen
 #[derive(Component)]
 struct OnGameScreen;
+
+#[derive(Resource)]
+struct Game {
+    player1: Player,
+    state: GameState,
+}
 
 #[derive(Component, Debug)]
 enum Direction {
@@ -120,7 +123,7 @@ fn behaviour_on_y(height: f32, transform: &Mut<Transform>, logo: &mut Direction)
 
 fn gameover(
     mut game_state: ResMut<NextState<GameState>>,
-    query: Query<(&Direction)>,
+    query: Query<&Direction>,
 ) {
     for direction in query.iter() {
         match direction {
