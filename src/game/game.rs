@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::render::render_resource::ShaderType;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 use crate::{despawn_screen, GameState};
@@ -8,7 +7,7 @@ use crate::{despawn_screen, GameState};
 // display the current settings for 5 seconds before returning to the menu
 pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, game)
+        .add_systems(Update, (game, mouvement))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
 
@@ -22,7 +21,7 @@ enum Direction {
     Down,
     Right,
     Left,
-    Stop
+    Stop,
 }
 
 fn game_setup(
@@ -55,7 +54,7 @@ fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mu
         match *logo {
             Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
             Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-            Direction::Right => transform.translation.x -= 150. * time.delta_seconds(),
+            Direction::Right => transform.translation.x += 150. * time.delta_seconds(),
             Direction::Left => transform.translation.x -= 150. * time.delta_seconds(),
             Direction::Stop => {
                 transform.translation.x += 0.;
@@ -64,6 +63,20 @@ fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mu
         }
         behaviour_on_y(height, &transform, &mut logo);
         behaviour_on_x(width, &transform, &mut logo);
+    }
+}
+
+fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, time: Res<Time>, mut position: Query<&mut Direction>) {
+    for (mut logo) in &mut position {
+        if keyboard_input.just_pressed(KeyCode::KeyA) {
+            *logo = Direction::Left;
+        } else if keyboard_input.just_pressed(KeyCode::KeyD) {
+            *logo = Direction::Right;
+        } else if keyboard_input.just_pressed(KeyCode::KeyW) {
+            *logo = Direction::Up;
+        } else if keyboard_input.just_pressed(KeyCode::KeyS) {
+            *logo = Direction::Down;
+        }
     }
 }
 
