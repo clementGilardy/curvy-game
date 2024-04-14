@@ -5,9 +5,10 @@ use crate::{despawn_screen, GameState};
 use crate::game::player::Player;
 
 pub fn game_plugin(app: &mut App) {
-    app.init_resource::<Game>()
+    let game = Game::new();
+    app.insert_resource(game)
         .add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, (game, mouvement, end_game).run_if(in_state(GameState::Game)))
+        .add_systems(Update, (game_direction, mouvement, end_game).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
 
@@ -15,12 +16,18 @@ pub fn game_plugin(app: &mut App) {
 #[derive(Component)]
 pub struct OnGameScreen;
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct Game {
     pub players: [Player; 1],
 }
 
 impl Game {
+    pub fn new() -> Game {
+        Game {
+            players: [Player::new()],
+        }
+    }
+
     pub fn spawn_player(&self, mut commands: Commands,
                         mut meshes: ResMut<Assets<Mesh>>,
                         mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -36,12 +43,12 @@ impl Game {
     fn init_shape(&self, meshes: &mut ResMut<Assets<Mesh>>) -> Vec<Mesh2dHandle> {
         let mut shapes = Vec::new();
         for _ in &self.players {
-            &shapes.push(Mesh2dHandle(meshes.add(Circle { radius: 10.0 })));
+            let _ = &shapes.push(Mesh2dHandle(meshes.add(Circle { radius: 10.0 })));
         }
         shapes
     }
 
-    fn spawn(&self,commands: &mut Commands, shape: Mesh2dHandle, materials: &mut ResMut<Assets<ColorMaterial>>, color: Color) -> () {
+    fn spawn(&self, commands: &mut Commands, shape: Mesh2dHandle, materials: &mut ResMut<Assets<ColorMaterial>>, color: Color) -> () {
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: shape,
@@ -77,7 +84,7 @@ fn game_setup(
     game.spawn_player(commands, meshes, materials);
 }
 
-fn game(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mut Direction, &mut Transform)>) {
+fn game_direction(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mut Direction, &mut Transform)>) {
     for (mut logo, mut transform) in &mut shape_position {
         let window = windows.single();
         let height = window.height();
