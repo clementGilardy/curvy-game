@@ -28,41 +28,44 @@ impl Game {
         }
     }
 
-    pub fn spawn_player(&self, mut commands: Commands,
+    pub fn spawn_player(&mut self,
+                        mut commands: Commands,
                         mut meshes: ResMut<Assets<Mesh>>,
                         mut materials: ResMut<Assets<ColorMaterial>>) {
-        let shapes = self.init_shape(&mut meshes);
-        let len = &shapes.len();
-        for (i, shape) in shapes.into_iter().enumerate() {
-            let color = Color::hsl(360. * i as f32 / *len as f32, 0.95, 0.7);
-            self.spawn(&mut commands, shape, &mut materials, color);
+        let meshes = self.init_meshes(&mut meshes);
+        let len = self.players.len();
+        for i in 0..len {
+            let player = &mut self.players[i];
+            let snake = Game::init_snake(len, i, &mut materials, player, meshes[i].clone());
+            player.set_snake(snake.clone());
+            self.spawn(&mut commands, &snake.clone());
         }
-        println!("{:?}", self.players);
     }
 
-    fn init_shape(&self, meshes: &mut ResMut<Assets<Mesh>>) -> Vec<Mesh2dHandle> {
-        let mut shapes = Vec::new();
-        for _ in &self.players {
-            let _ = &shapes.push(Mesh2dHandle(meshes.add(Circle { radius: 10.0 })));
-        }
-        shapes
+    fn init_meshes(&self, meshes: &mut ResMut<Assets<Mesh>>) -> Vec<Mesh2dHandle> {
+        self.players.iter().map(|_| {
+            Mesh2dHandle(meshes.add(Circle { radius: 10.0 }))
+        }).collect()
     }
 
-    fn spawn(&self, commands: &mut Commands, shape: Mesh2dHandle, materials: &mut ResMut<Assets<ColorMaterial>>, color: Color) -> () {
+    fn spawn(&self, commands: &mut Commands, snake: &MaterialMesh2dBundle<ColorMaterial>) {
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: shape,
-                material: materials.add(color),
-                transform: Transform::from_xyz(
-                    100.0,
-                    0.0,
-                    0.0,
-                ),
-                ..default()
-            },
+            snake.clone(),
             Direction::Up,
             OnGameScreen
         ));
+    }
+
+    fn init_snake(len: usize, i: usize, materials: &mut ResMut<Assets<ColorMaterial>>, player: &mut Player, meshe: Mesh2dHandle) -> MaterialMesh2dBundle<ColorMaterial> {
+        let color = Color::hsl(360. * i as f32 / len as f32, 0.95, 0.7);
+        let material = materials.add(color);
+        let transform = Transform::from_xyz(player.x, player.y, 0.0);
+        MaterialMesh2dBundle {
+            mesh: meshe,
+            material,
+            transform,
+            ..Default::default()
+        }
     }
 }
 
@@ -79,7 +82,7 @@ fn game_setup(
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<ColorMaterial>>,
-    game: ResMut<Game>,
+    mut game: ResMut<Game>,
 ) {
     game.spawn_player(commands, meshes, materials);
 }
