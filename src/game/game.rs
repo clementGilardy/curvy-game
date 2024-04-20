@@ -2,13 +2,11 @@ use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 use crate::{despawn_screen, GameState};
-use crate::game::player::Player;
+use crate::game::snake::{Corpse, Position, Snake};
 
 pub fn game_plugin(app: &mut App) {
-    let game = Game::new();
-    app.insert_resource(game)
-        .add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, (game_direction, mouvement, end_game).run_if(in_state(GameState::Game)))
+    app.add_systems(OnEnter(GameState::Game), game_setup)
+        .add_systems(Update, (game_direction, mouvement, trace, end_game).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
 
@@ -17,57 +15,7 @@ pub fn game_plugin(app: &mut App) {
 pub struct OnGameScreen;
 
 #[derive(Resource)]
-struct Game {
-    pub players: [Player; 1],
-}
-
-impl Game {
-    pub fn new() -> Game {
-        Game {
-            players: [Player::new()],
-        }
-    }
-
-    pub fn spawn_player(&mut self,
-                        mut commands: Commands,
-                        mut meshes: ResMut<Assets<Mesh>>,
-                        mut materials: ResMut<Assets<ColorMaterial>>) {
-        let meshes = self.init_meshes(&mut meshes);
-        let len = self.players.len();
-        for i in 0..len {
-            let player = &mut self.players[i];
-            let snake = Game::init_snake(len, i, &mut materials, player, meshes[i].clone());
-            player.set_snake(snake.clone());
-            self.spawn(&mut commands, &snake.clone());
-        }
-    }
-
-    fn init_meshes(&self, meshes: &mut ResMut<Assets<Mesh>>) -> Vec<Mesh2dHandle> {
-        self.players.iter().map(|_| {
-            Mesh2dHandle(meshes.add(Circle { radius: 10.0 }))
-        }).collect()
-    }
-
-    fn spawn(&self, commands: &mut Commands, snake: &MaterialMesh2dBundle<ColorMaterial>) {
-        commands.spawn((
-            snake.clone(),
-            Direction::Up,
-            OnGameScreen
-        ));
-    }
-
-    fn init_snake(len: usize, i: usize, materials: &mut ResMut<Assets<ColorMaterial>>, player: &mut Player, meshe: Mesh2dHandle) -> MaterialMesh2dBundle<ColorMaterial> {
-        let color = Color::hsl(360. * i as f32 / len as f32, 0.95, 0.7);
-        let material = materials.add(color);
-        let transform = Transform::from_xyz(player.x, player.y, 0.0);
-        MaterialMesh2dBundle {
-            mesh: meshe,
-            material,
-            transform,
-            ..Default::default()
-        }
-    }
-}
+struct Game;
 
 #[derive(Component, Debug)]
 enum Direction {
@@ -79,81 +27,141 @@ enum Direction {
 }
 
 fn game_setup(
-    commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>,
-    mut game: ResMut<Game>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    game.spawn_player(commands, meshes, materials);
+    let position = Position {
+        x: 100.,
+        y: 20.,
+    };
+    let mut positions = Vec::new();
+    positions.push(position.clone());
+    let color = Color::hsl(360., 0.95, 0.7);
+    let material = materials.add(color);
+    let transform = Transform::from_xyz(position.x, position.y, 0.0);
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+            material,
+            transform,
+            ..Default::default()
+        },
+        Snake,
+        Corpse {
+            positions
+        },
+        Direction::Up,
+        OnGameScreen
+    ));
 }
 
-fn game_direction(windows: Query<&Window>, time: Res<Time>, mut shape_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut logo, mut transform) in &mut shape_position {
-        let window = windows.single();
-        let height = window.height();
-        let width = window.width();
-        match *logo {
-            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-            Direction::Right => transform.translation.x += 150. * time.delta_seconds(),
-            Direction::Left => transform.translation.x -= 150. * time.delta_seconds(),
-            Direction::Stop => {
-                transform.translation.x += 0.;
-                transform.translation.y += 0.
-            }
-        }
-        behaviour_on_y(height, &transform, &mut logo);
-        behaviour_on_x(width, &transform, &mut logo);
-    }
+fn game_direction(
+    windows: Query<&Window>,
+    time: Res<Time>,
+    mut query: Query<(&mut Direction, &mut Corpse), With<Snake>>,
+) {
+    let (mut direction, mut corpse) = query.single_mut();
+    let window = windows.single();
+    let height = window.height();
+    let width = window.width();
+
+    // Calcul de la nouvelle position en fonction de la direction
+    let new_position = match *direction {
+        Direction::Up | Direction::Down => Position {
+            y: corpse.positions.last().map_or(0.0, |last_pos| {
+                last_pos.y + match *direction {
+                    Direction::Up => 150. * time.delta_seconds(),
+                    Direction::Down => -150. * time.delta_seconds(),
+                    _ => 0.0,
+                }
+            }),
+            x: corpse.positions.last().map_or(0.0, |last_pos| last_pos.x),
+        },
+        Direction::Right | Direction::Left => Position {
+            x: corpse.positions.last().map_or(0.0, |last_pos| {
+                last_pos.x + match *direction {
+                    Direction::Right => 150. * time.delta_seconds(),
+                    Direction::Left => -150. * time.delta_seconds(),
+                    _ => 0.0,
+                }
+            }),
+            y: corpse.positions.last().map_or(0.0, |last_pos| last_pos.y),
+        },
+        Direction::Stop => Position { x: 0.0, y: 0.0 },
+    };
+
+    // Ajout de la nouvelle position dans la liste des positions du corpse
+    corpse.positions.push(new_position);
+
+    // Appel des fonctions de comportement sur l'axe y et l'axe x
+    behaviour_on_y(height, &corpse.positions.last().unwrap(), &mut direction);
+    behaviour_on_x(width, &corpse.positions.last().unwrap(), &mut direction);
+}
+
+fn trace(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>, mut meshes: ResMut<Assets<Mesh>>, mut query: Query<&mut Corpse, With<Snake>>) {
+    let corpse = query.single_mut();
+    let last_position = corpse.positions.last().unwrap();
+    let color = Color::hsl(360., 0.95, 0.7);
+    let material = materials.add(color);
+    let transform = Transform::from_xyz(last_position.x, last_position.y, 0.0);
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: Mesh2dHandle(meshes.add(Circle { radius: 10.0 })),
+            material,
+            transform,
+            ..Default::default()
+        },
+    ));
 }
 
 fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, mut position: Query<&mut Direction>) {
-    for mut logo in &mut position {
+    for mut direction in &mut position {
         if keyboard_input.just_pressed(KeyCode::KeyA) {
-            match *logo {
+            match *direction {
                 Direction::Right => {}
                 _ => {
-                    *logo = Direction::Left;
+                    *direction = Direction::Left;
                 }
             }
         } else if keyboard_input.just_pressed(KeyCode::KeyD) {
-            match *logo {
+            match *direction {
                 Direction::Left => {}
                 _ => {
-                    *logo = Direction::Right;
+                    *direction = Direction::Right;
                 }
             }
         } else if keyboard_input.just_pressed(KeyCode::KeyW) {
-            match *logo {
+            match *direction {
                 Direction::Down => {}
                 _ => {
-                    *logo = Direction::Up;
+                    *direction = Direction::Up;
                 }
             }
         } else if keyboard_input.just_pressed(KeyCode::KeyS) {
-            match *logo {
+            match *direction {
                 Direction::Up => {}
                 _ => {
-                    *logo = Direction::Down;
+                    *direction = Direction::Down;
                 }
             }
         }
     }
 }
 
-fn behaviour_on_x(width: f32, transform: &Mut<Transform>, logo: &mut Direction) {
-    if transform.translation.x > (width / 2.) {
-        *logo = Direction::Stop;
-    } else if transform.translation.x < -(width / 2.) {
-        *logo = Direction::Stop
+fn behaviour_on_x(width: f32, position: &Position, direction: &mut Direction) {
+    if position.x > (width / 2.) {
+        *direction = Direction::Stop;
+    } else if position.x < -(width / 2.) {
+        *direction = Direction::Stop
     }
 }
 
-fn behaviour_on_y(height: f32, transform: &Mut<Transform>, logo: &mut Direction) {
-    if transform.translation.y > (height / 2.) {
-        *logo = Direction::Stop;
-    } else if transform.translation.y < -(height / 2.) {
-        *logo = Direction::Stop
+fn behaviour_on_y(height: f32, position: &Position, direction: &mut Direction) {
+    if position.y > (height / 2.) {
+        *direction = Direction::Stop;
+    } else if position.y < -(height / 2.) {
+        *direction = Direction::Stop
     }
 }
 
