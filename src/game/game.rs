@@ -112,6 +112,7 @@ fn trace(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>, m
             transform,
             ..Default::default()
         },
+        OnGameScreen
     ));
 }
 
