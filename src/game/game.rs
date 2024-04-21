@@ -8,7 +8,7 @@ pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
         .add_systems(
             Update,
-            (game_direction, mouvement, trace_snake_corpse, corpse_collision, end_game).run_if(in_state(GameState::Game)),
+            (game_direction, mouvement, trace_snake_corpse, queue_collision, end_game).run_if(in_state(GameState::Game)),
         )
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
 }
@@ -144,6 +144,13 @@ fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, mut query: Query<(&mut D
     }
 }
 
+fn queue_collision(mut query: Query<(&mut Direction, &mut Snake), With<Snake>>) {
+    let (mut direction, snake) = query.single_mut();
+    if snake.is_last_position_duplicate() {
+        *direction = Direction::Stop;
+    }
+}
+
 fn behaviour_on_x(width: f32, position: &Position, direction: &mut Direction) {
     if position.x > (width / 2.) {
         *direction = Direction::Stop;
@@ -160,19 +167,16 @@ fn behaviour_on_y(height: f32, position: &Position, direction: &mut Direction) {
     }
 }
 
-fn corpse_collision() {}
-
 fn end_game(
     mut game_state: ResMut<NextState<GameState>>,
     query: Query<&Direction>,
 ) -> () {
-    for direction in query.iter() {
-        match direction {
-            Direction::Stop => {
-                print!("game over");
-                game_state.set(GameState::GameOver);
-            }
-            _ => {}
+    let direction = query.single();
+    match direction {
+        Direction::Stop => {
+            print!("game over");
+            game_state.set(GameState::GameOver);
         }
+        _ => {}
     }
 }
