@@ -59,7 +59,6 @@ fn setup(mut commands: Commands) -> () {
 
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
-        println!("despawn {:?}", entity);
         commands.entity(entity).despawn_recursive();
     }
 }
