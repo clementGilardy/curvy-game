@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 use crate::{despawn_screen, GameState};
-use crate::game::snake::{Corpse, Position, Snake};
+use crate::game::snake::{Position, Snake};
 
 pub fn game_plugin(app: &mut App) {
     app.add_systems(OnEnter(GameState::Game), game_setup)
@@ -17,7 +17,7 @@ pub struct OnGameScreen;
 #[derive(Resource)]
 struct Game;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, PartialEq)]
 enum Direction {
     Up,
     Down,
@@ -47,8 +47,7 @@ fn game_setup(
             transform,
             ..Default::default()
         },
-        Snake,
-        Corpse {
+        Snake {
             positions
         },
         Direction::Up,
@@ -59,9 +58,9 @@ fn game_setup(
 fn game_direction(
     windows: Query<&Window>,
     time: Res<Time>,
-    mut query: Query<(&mut Direction, &mut Corpse), With<Snake>>,
+    mut query: Query<(&mut Direction, &mut Snake), With<Snake>>,
 ) {
-    let (mut direction, mut corpse) = query.single_mut();
+    let (mut direction, mut snake) = query.single_mut();
     let window = windows.single();
     let height = window.height();
     let width = window.width();
@@ -69,39 +68,39 @@ fn game_direction(
     // Calcul de la nouvelle position en fonction de la direction
     let new_position = match *direction {
         Direction::Up | Direction::Down => Position {
-            y: corpse.positions.last().map_or(0.0, |last_pos| {
+            y: snake.positions.last().map_or(0.0, |last_pos| {
                 last_pos.y + match *direction {
                     Direction::Up => 150. * time.delta_seconds(),
                     Direction::Down => -150. * time.delta_seconds(),
                     _ => 0.0,
                 }
             }),
-            x: corpse.positions.last().map_or(0.0, |last_pos| last_pos.x),
+            x: snake.positions.last().map_or(0.0, |last_pos| last_pos.x),
         },
         Direction::Right | Direction::Left => Position {
-            x: corpse.positions.last().map_or(0.0, |last_pos| {
+            x: snake.positions.last().map_or(0.0, |last_pos| {
                 last_pos.x + match *direction {
                     Direction::Right => 150. * time.delta_seconds(),
                     Direction::Left => -150. * time.delta_seconds(),
                     _ => 0.0,
                 }
             }),
-            y: corpse.positions.last().map_or(0.0, |last_pos| last_pos.y),
+            y: snake.positions.last().map_or(0.0, |last_pos| last_pos.y),
         },
         Direction::Stop => Position { x: 0.0, y: 0.0 },
     };
 
-    // Ajout de la nouvelle position dans la liste des positions du corpse
-    corpse.positions.push(new_position);
+    // Ajout de la nouvelle position dans la liste des positions du snake
+    snake.positions.push(new_position);
 
     // Appel des fonctions de comportement sur l'axe y et l'axe x
-    behaviour_on_y(height, &corpse.positions.last().unwrap(), &mut direction);
-    behaviour_on_x(width, &corpse.positions.last().unwrap(), &mut direction);
+    behaviour_on_y(height, &snake.positions.last().unwrap(), &mut direction);
+    behaviour_on_x(width, &snake.positions.last().unwrap(), &mut direction);
 }
 
-fn trace(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>, mut meshes: ResMut<Assets<Mesh>>, mut query: Query<&mut Corpse, With<Snake>>) {
-    let corpse = query.single_mut();
-    let last_position = corpse.positions.last().unwrap();
+fn trace(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>, mut meshes: ResMut<Assets<Mesh>>, mut query: Query<&mut Snake, With<Snake>>) {
+    let snake = query.single_mut();
+    let last_position = snake.positions.last().unwrap();
     let color = Color::hsl(360., 0.95, 0.7);
     let material = materials.add(color);
     let transform = Transform::from_xyz(last_position.x, last_position.y, 0.0);
@@ -118,34 +117,26 @@ fn trace(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>, m
 
 fn mouvement(keyboard_input: Res<ButtonInput<KeyCode>>, mut position: Query<&mut Direction>) {
     for mut direction in &mut position {
-        if keyboard_input.just_pressed(KeyCode::KeyA) {
-            match *direction {
-                Direction::Right => {}
-                _ => {
-                    *direction = Direction::Left;
-                }
-            }
-        } else if keyboard_input.just_pressed(KeyCode::KeyD) {
-            match *direction {
-                Direction::Left => {}
-                _ => {
-                    *direction = Direction::Right;
-                }
-            }
-        } else if keyboard_input.just_pressed(KeyCode::KeyW) {
-            match *direction {
-                Direction::Down => {}
-                _ => {
-                    *direction = Direction::Up;
-                }
-            }
-        } else if keyboard_input.just_pressed(KeyCode::KeyS) {
-            match *direction {
-                Direction::Up => {}
-                _ => {
-                    *direction = Direction::Down;
-                }
-            }
+        if let Some(new_direction) = match keyboard_input.just_pressed(KeyCode::KeyA) {
+            true if *direction != Direction::Right => Some(Direction::Left),
+            _ => None,
+        } {
+            *direction = new_direction;
+        } else if let Some(new_direction) = match keyboard_input.just_pressed(KeyCode::KeyD) {
+            true if *direction != Direction::Left => Some(Direction::Right),
+            _ => None,
+        } {
+            *direction = new_direction;
+        } else if let Some(new_direction) = match keyboard_input.just_pressed(KeyCode::KeyW) {
+            true if *direction != Direction::Down => Some(Direction::Up),
+            _ => None,
+        } {
+            *direction = new_direction;
+        } else if let Some(new_direction) = match keyboard_input.just_pressed(KeyCode::KeyS) {
+            true if *direction != Direction::Up => Some(Direction::Down),
+            _ => None,
+        } {
+            *direction = new_direction;
         }
     }
 }

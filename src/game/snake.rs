@@ -1,12 +1,10 @@
 use bevy::prelude::Component;
 
 #[derive(Component)]
-pub struct Snake;
-
-#[derive(Component)]
-pub struct Corpse {
+pub struct Snake {
     pub positions: Vec<Position>,
 }
+
 
 #[derive(Clone)]
 pub struct Position {
